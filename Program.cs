@@ -13,4 +13,8 @@ builder.Services.AddScoped( sp => new HttpClient { BaseAddress = new Uri( builde
 builder.Services.AddMudServices();
 builder.Services.AddBlazoredLocalStorage();
 
+builder.Services.AddScoped( sp =>
+    new HttpClient { BaseAddress = new Uri( "https://marck21.github.io/Calculators/" ) }
+);
+
 await builder.Build().RunAsync();
