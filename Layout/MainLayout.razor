@@ -9,7 +9,7 @@
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@(( e ) => DrawerToggle())" />
-        <MudButton OnClick="@(() => _navigationManager.NavigateTo( "/" ))" Class="ml-3">Calculadoras</MudButton>
+        <MudButton OnClick="@(() => _navigationManager.NavigateTo( "/Calculators" ))" Class="ml-3">Calculadoras</MudButton>
         <MudSpacer />
         <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
         <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
