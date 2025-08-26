@@ -3,6 +3,60 @@
 
 <PageTitle>Calculadoras</PageTitle>
 
-<h1>Hello, world!</h1>
+<MudGrid Spacing="4" Justify="Justify.Center" Class="mt-8">
 
-Welcome to your new app.
+    <MudItem xs="12" sm="6" md="4">
+        <MudLink Href="/mortage" Underline="Underline.None">
+            <MudCard Elevation="3" Class="calculator-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h5">Calculadora de Hipotecas</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIcon Icon="@Icons.Material.Filled.Home" Color="Color.Primary" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Estima la cuota mensual, los intereses totales y el cuadro de amortización de tu préstamo hipotecario.</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudLink>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudLink Href="/buy-or-rent" Underline="Underline.None">
+            <MudCard Elevation="3" Class="calculator-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h5">¿Comprar o Alquilar?</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIcon Icon="@Icons.Material.Filled.Key" Color="Color.Primary" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Analiza financieramente si es mejor comprar una vivienda o seguir de alquiler a largo plazo.</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudLink>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudLink Href="/compound-interest" Underline="Underline.None">
+            <MudCard Elevation="3" Class="calculator-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h5">Interés Compuesto</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudIcon Icon="@Icons.Material.Filled.ShowChart" Color="Color.Primary" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Proyecta el crecimiento de tus ahorros e inversiones a lo largo del tiempo gracias al interés compuesto.</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudLink>
+    </MudItem>
+
+</MudGrid>
