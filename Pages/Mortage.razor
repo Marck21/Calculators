@@ -1,9 +1,7 @@
 ﻿@page "/mortage"
 @inject Blazored.LocalStorage.ILocalStorageService localStorage
 
-<PageTitle>Hipoteca</PageTitle>
-
-<MudThemeProvider />
+<PageTitle>ComprarHipoteca</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large">
     <MudGrid Spacing="4">
@@ -27,7 +25,7 @@
                 <MudNumericField @bind-Value="inputs.AnosHipoteca" @bind-Value:after="() => RecalculateAsync()" Label="Años de Hipoteca" Variant="Variant.Outlined" Class="mt-4" />
                 <MudSlider @bind-Value="inputs.AnosHipoteca" @bind-Value:after="() => RecalculateAsync()" Min="5" Max="40" Class="my-2 d-none d-sm-flex" />
 
-                <MudNumericField @bind-Value="inputs.TipoInteresAnual" @bind-Value:after="() => RecalculateAsync()" Label="Interés hipoteca TAE (%)" Variant="Variant.Outlined" Format="F2" Step="0.1" Class="mt-4" />
+                <MudNumericField @bind-Value="inputs.TipoInteresAnual" @bind-Value:after="() => RecalculateAsync()" Label="Interés Hipoteca TIN (%)" Variant="Variant.Outlined" Format="F2" Step="0.1" Class="mt-4" />
                 <MudSlider @bind-Value="inputs.TipoInteresAnual" @bind-Value:after="() => RecalculateAsync()" Min="0.00" Max="10.00" Step="0.1" Class="my-2 d-none d-sm-flex" />
 
                 <MudNumericField @bind-Value="inputs.ImpuestosCompra" @bind-Value:after="() => RecalculateAsync()" Label="Impuestos de Compra (ITP, etc.) (%)" Variant="Variant.Outlined" Format="F2" Class="mt-4" />
@@ -38,9 +36,9 @@
                 <MudExpansionPanels MultiExpansion="true" Class="mt-4">
                     <MudExpansionPanel Text="Finanzas Personales" Expanded="true">
                         <MudNumericField @bind-Value="inputs.SueldoNetoMensual" @bind-Value:after="() => RecalculateAsync()" Label="Sueldo Neto Mensual" Variant="Variant.Outlined" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Euro" HelperText="Ingresos netos totales del hogar." Step="100" />
-                        <MudNumericField @bind-Value="inputs.PorcentajeMaximoSueldo" @bind-Value:after="() => RecalculateAsync()" Label="% Máximo del Sueldo para Hipoteca" Variant="Variant.Outlined" Format="F1" Step="0.5" Class="mt-4" />
+                        <MudNumericField @bind-Value="inputs.PorcentajeMaximoSueldo" @bind-Value:after="() => RecalculateAsync()" Label="% Ratio de Endeudamiento" Variant="Variant.Outlined" Format="F1" Step="0.5" Class="mt-4" />
                         <MudSlider @bind-Value="inputs.PorcentajeMaximoSueldo" @bind-Value:after="() => RecalculateAsync()" Min="1.0" Max="50.0" Step="0.5" Class="my-2 d-none d-sm-flex" />
-                        <MudNumericField Value="calculated.PagoMensualMaximoRecomendado" Label="Pago Mensual Máximo Recomendado" ReadOnly="true" Variant="Variant.Filled" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Euro" Format="C0" Culture="es" />
+                        <MudNumericField Value="calculated.PagoMensualMaximoRecomendado" Label="Ratio de Endeudamiento Máximo Recomendado" ReadOnly="true" Variant="Variant.Filled" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Euro" Format="C0" Culture="es" />
                     </MudExpansionPanel>
                 </MudExpansionPanels>
             </MudPaper>
