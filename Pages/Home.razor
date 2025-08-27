@@ -13,7 +13,7 @@
                         <MudText Typo="Typo.h5">Calculadora de Hipotecas</MudText>
                     </CardHeaderContent>
                     <CardHeaderActions>
-                        <MudIcon Icon="@Icons.Material.Filled.Home" Color="Color.Primary" />
+                        <MudImage Width="80" Height="80" Src="images/hipoteca-bordered.png" Alt="Mortage icon" Class="rounded-lg" />
                     </CardHeaderActions>
                 </MudCardHeader>
                 <MudCardContent>
@@ -31,7 +31,7 @@
                         <MudText Typo="Typo.h5">¿Comprar o Alquilar?</MudText>
                     </CardHeaderContent>
                     <CardHeaderActions>
-                        <MudIcon Icon="@Icons.Material.Filled.Key" Color="Color.Primary" />
+                        <MudImage Width="80" Height="80" Src="images/buy-or-rent-bordered.png" Alt="Buy or rent icon" Class="rounded-lg" />
                     </CardHeaderActions>
                 </MudCardHeader>
                 <MudCardContent>
@@ -49,7 +49,7 @@
                         <MudText Typo="Typo.h5">Interés Compuesto</MudText>
                     </CardHeaderContent>
                     <CardHeaderActions>
-                        <MudIcon Icon="@Icons.Material.Filled.ShowChart" Color="Color.Primary" />
+                        <MudImage Width="80" Height="80" Src="images/interes-compuesto.png" Alt="Compound interest icon" Class="rounded-lg" />
                     </CardHeaderActions>
                 </MudCardHeader>
                 <MudCardContent>
@@ -60,6 +60,61 @@
     </MudItem>
 
     @* Calculadora jubilación/libertad financiera *@
-    @* Calculadora apalancamiento/pignoración *@
+    @* Calculadora apalancamiento/pignoración para invertir*@
+    @* Calculadora préstamo/financiación coche  *@
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudLink Href="financial-freedom" Underline="Underline.None">
+            <MudCard Elevation="3" Class="calculator-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h5">Libertad Financiera</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudImage Width="80" Height="80" Src="images/jubilacion.png" Alt="Retirement icon" Class="rounded-lg" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Calcula cuánto necesitas ahorrar y cómo invertir para alcanzar tu jubilación o la independencia financiera.</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudLink>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudLink Href="leverage-investment" Underline="Underline.None">
+            <MudCard Elevation="3" Class="calculator-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h5">Inversión con Apalancamiento</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudImage Width="80" Height="80" Src="images/prestamo.png" Alt="Leverage icon" Class="rounded-lg" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Simula el impacto de usar apalancamiento o pignoración para potenciar tus inversiones y comprende los riesgos.</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudLink>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudLink Href="car-loan" Underline="Underline.None">
+            <MudCard Elevation="3" Class="calculator-card">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h5">Préstamo del Coche</MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        <MudImage Width="80" Height="80" Src="images/financiacion-coche.png" Alt="Car loan icon" Class="rounded-lg" />
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Calcula la cuota mensual y el coste total de la financiación para la compra de tu próximo vehículo.</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudLink>
+    </MudItem>
 
 </MudGrid>
