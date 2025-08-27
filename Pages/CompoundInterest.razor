@@ -32,8 +32,7 @@
                             </MudGrid>
                         }
                         <MudGrid>
-                            <MudItem xs="6"><MudButton OnClick="AddPeriod" FullWidth="true" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" Color="Color.Primary">Añadir</MudButton></MudItem>
-                            <MudItem xs="6"><MudButton OnClick="SortPeriods" FullWidth="true" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Sort">Ordenar</MudButton></MudItem>
+                            <MudItem xs="12"><MudButton OnClick="AddPeriod" FullWidth="true" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" Color="Color.Primary">Añadir</MudButton></MudItem>
                         </MudGrid>
                     </MudCardContent>
                 </MudCard>
@@ -104,12 +103,11 @@
         await CalculateAsync( isInitialLoad: true );
     }
 
-    private async Task AddPeriod()
+    private void AddPeriod()
     {
         var lastPeriod = inputs.ContributionPeriods.LastOrDefault();
         var nextStartYear = (lastPeriod?.EndYear ?? 0) + 1;
         inputs.ContributionPeriods.Add( new ContributionPeriod { StartYear = nextStartYear, EndYear = inputs.DurationInYears, Amount = 0 } );
-        await SortPeriods();
     }
 
     private async Task RemovePeriod( ContributionPeriod period )
@@ -121,25 +119,17 @@
         }
     }
 
-    private async Task SortPeriods()
-    {
-        inputs.ContributionPeriods = inputs.ContributionPeriods.OrderBy( p => p.StartYear ).ToList();
-        await CalculateAsync();
-    }
-
     private async Task CalculateAsync( bool isInitialLoad = false )
     {
         calculated.ValidationMessage = string.Empty;
         var sortedPeriods = inputs.ContributionPeriods.OrderBy( p => p.StartYear ).ToList();
 
-        // CORREGIDO: La validación ahora permite que un periodo empiece donde termina el anterior
         for ( int i = 1; i < sortedPeriods.Count; i++ )
         {
-            if ( sortedPeriods[i].StartYear < sortedPeriods[i - 1].EndYear ) // <-- El cambio clave está aquí
+            if ( sortedPeriods[i].StartYear < sortedPeriods[i - 1].EndYear )
             {
                 calculated.ValidationMessage = $"Error: El periodo que empieza en el año {sortedPeriods[i].StartYear} se solapa con el anterior que termina en el año {sortedPeriods[i - 1].EndYear}.";
                 annualBreakdown.Clear();
-                // Limpiar resultados para evitar mostrar datos incorrectos
                 calculated.FinalBalance = 0;
                 calculated.InflationAdjustedFinalBalance = 0;
                 pieChartData = new double[3];
@@ -235,7 +225,7 @@
         public decimal TotalContributions { get; set; }
         public decimal TotalInterest { get; set; }
         public decimal InflationAdjustedFinalBalance { get; set; }
-        public string ValidationMessage { get; set; }
+        public string? ValidationMessage { get; set; }
     }
 
     public class AnnualBreakdownRow
