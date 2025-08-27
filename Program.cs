@@ -1,9 +1,10 @@
-using Blazored.LocalStorage;
-using Calculators;
-using Calculators.Services;
-using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using MudBlazor.Services;
+global using Blazored.LocalStorage;
+global using Calculators;
+global using Calculators.Services;
+global using Microsoft.AspNetCore.Components.Web;
+global using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+global using MudBlazor.Services;
+global using MudBlazor;
 
 var builder = WebAssemblyHostBuilder.CreateDefault( args );
 builder.RootComponents.Add<App>( "#app" );
@@ -15,6 +16,7 @@ builder.Services.AddMudServices();
 builder.Services.AddBlazoredLocalStorage();
 
 builder.Services.AddScoped<ICompoundInterestService, CompoundInterestService>();
+builder.Services.AddScoped<IMortgageService, MortgageService>();
 
 builder.Services.AddScoped( sp =>
     new HttpClient { BaseAddress = new Uri( "https://marck21.github.io/Calculators/" ) }

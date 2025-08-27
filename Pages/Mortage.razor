@@ -1,5 +1,9 @@
 ﻿@page "/mortage"
+@using Calculators.Models.BuyOrRent
+@using static Calculators.Helpers.MortageHelper
+
 @inject Blazored.LocalStorage.ILocalStorageService localStorage
+@inject IMortgageService MortgageService
 
 <PageTitle>Hipoteca</PageTitle>
 
@@ -12,9 +16,9 @@
                 <MudNumericField @bind-Value="inputs.PrecioVivienda" @bind-Value:after="() => RecalculateAsync()" Label="Precio de la Vivienda" Variant="Variant.Outlined" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Euro" Step="1000" />
                 <div class="my-4">
                     <MudButtonGroup Variant="Variant.Outlined" FullWidth="true" OverrideStyles="false">
-                        <MudButton OnClick="@(() => SetDownPaymentPercentage( 0.10m ))">10%</MudButton>
-                        <MudButton OnClick="@(() => SetDownPaymentPercentage( 0.20m ))">20%</MudButton>
-                        <MudButton OnClick="@(() => SetDownPaymentPercentage( 0.30m ))">30%</MudButton>
+                        <MudButton OnClick="@(() => SetDownPaymentPercentageAndRecalculate( 0.10m ))">10%</MudButton>
+                        <MudButton OnClick="@(() => SetDownPaymentPercentageAndRecalculate( 0.20m ))">20%</MudButton>
+                        <MudButton OnClick="@(() => SetDownPaymentPercentageAndRecalculate( 0.30m ))">30%</MudButton>
                     </MudButtonGroup>
                 </div>
                 <MudNumericField @bind-Value="inputs.AportacionInicial" @bind-Value:after="() => RecalculateAsync()" Label="Aportación Inicial (Efectivo)" Variant="Variant.Outlined" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Euro" HelperText="Dinero total que aportas (cubre costes + entrada)." Step="1000" />
@@ -79,8 +83,8 @@
 </MudContainer>
 
 @code {
-    private MortgageInputs inputs = new MortgageInputs();
-    private MortgageCalculations calculated = new MortgageCalculations();
+    private MortgageInputs inputs = new();
+    private MortgageCalculations calculated = new();
     private System.Globalization.CultureInfo es = new System.Globalization.CultureInfo( "es-ES" );
     private bool isLoading = true;
 
@@ -95,57 +99,15 @@
         await RecalculateAsync( isInitialLoad: true );
     }
 
-    private async Task SetDownPaymentPercentage( decimal targetTotalPercentage )
+    private async Task SetDownPaymentPercentageAndRecalculate( decimal targetTotalPercentage )
     {
-        if ( inputs.PrecioVivienda > 0 )
-        {
-            decimal netPercentage = 0m;
-            if ( targetTotalPercentage == 0.30m )
-                netPercentage = 0.20m;
-            else if ( targetTotalPercentage == 0.20m )
-                netPercentage = 0.10m;
-            else if ( targetTotalPercentage == 0.10m )
-                netPercentage = 0.00m;
-
-            decimal purchaseCosts = (inputs.PrecioVivienda * ((decimal)inputs.ImpuestosCompra / 100)) + inputs.GastosFijosCompra;
-            decimal requiredNetDownPayment = inputs.PrecioVivienda * netPercentage;
-            decimal totalCashOutlay = purchaseCosts + requiredNetDownPayment;
-            inputs.AportacionInicial = Math.Round( totalCashOutlay );
-
-            await RecalculateAsync();
-        }
+        inputs.AportacionInicial = MortgageService.CalculateDownPaymentBasedOnPercentage( inputs, targetTotalPercentage );
+        await RecalculateAsync();
     }
 
     private async Task RecalculateAsync( bool isInitialLoad = false )
     {
-        // --- Cálculos de costes y aportación ---
-        calculated.CostesTotalesCompra = (inputs.PrecioVivienda * ((decimal)inputs.ImpuestosCompra / 100)) + inputs.GastosFijosCompra;
-        calculated.CosteTotalVivienda = inputs.PrecioVivienda + calculated.CostesTotalesCompra;
-        calculated.EntradaNeta = inputs.AportacionInicial - calculated.CostesTotalesCompra;
-
-        // --- Lógica de la alerta ---
-        if ( inputs.PrecioVivienda > 0 )
-        {
-            var netDownPaymentPercentage = calculated.EntradaNeta / inputs.PrecioVivienda;
-            string baseMessage = $"Tu entrada neta equivale al <strong>{netDownPaymentPercentage:P1}</strong> del precio. ";
-            if ( calculated.EntradaNeta < 0 ) { calculated.AlertMessage = "¡Error! La aportación inicial no cubre los costes de compra."; calculated.AlertSeverity = Severity.Error; }
-            else if ( netDownPaymentPercentage < 0.2m ) { calculated.AlertMessage = baseMessage + "Nota: Estás por debajo del 20% recomendado, una posición de mayor riesgo."; calculated.AlertSeverity = Severity.Warning; }
-            else { calculated.AlertMessage = baseMessage + "¡Excelente! Superas el 20% de entrada neta, una posición muy sólida."; calculated.AlertSeverity = Severity.Success; }
-        }
-        else { calculated.AlertMessage = string.Empty; }
-
-        // --- Cálculos de la hipoteca ---
-        calculated.ImportePrestamo = inputs.PrecioVivienda - Math.Max( 0, calculated.EntradaNeta );
-        calculated.PorcentajeFinanciacion = (inputs.PrecioVivienda > 0) ? calculated.ImportePrestamo / inputs.PrecioVivienda : 0;
-        calculated.PagoMensualHipoteca = FinancialMath.CalculateMonthlyMortgagePayment( calculated.ImportePrestamo, (decimal)inputs.TipoInteresAnual / 100, inputs.AnosHipoteca );
-
-        decimal totalPayments = calculated.PagoMensualHipoteca * inputs.AnosHipoteca * 12;
-        calculated.CosteTotalIntereses = (calculated.ImportePrestamo > 0) ? totalPayments - calculated.ImportePrestamo : 0;
-        calculated.CosteTotalConIntereses = calculated.CosteTotalVivienda + calculated.CosteTotalIntereses;
-
-        // --- Cálculo del ratio de endeudamiento ---
-        calculated.PorcentajeSueldoDedicadoHipoteca = (inputs.SueldoNetoMensual > 0) ? (calculated.PagoMensualHipoteca / inputs.SueldoNetoMensual) : 0;
-        calculated.PagoMensualMaximoRecomendado = inputs.SueldoNetoMensual * ((decimal)inputs.PorcentajeMaximoSueldo / 100);
+        calculated = MortgageService.CalculateMortgage( inputs );
 
         if ( !isLoading && !isInitialLoad )
         {
@@ -153,38 +115,5 @@
         }
 
         StateHasChanged();
-    }
-
-    public class MortgageInputs
-    {
-        public decimal PrecioVivienda { get; set; } = 250000;
-        public decimal AportacionInicial { get; set; } = 68500;
-        public int AnosHipoteca { get; set; } = 30;
-        public double TipoInteresAnual { get; set; } = 2.00;
-        public double ImpuestosCompra { get; set; } = 10.00;
-        public decimal GastosFijosCompra { get; set; } = 6000;
-        public decimal SueldoNetoMensual { get; set; } = 2500;
-        public double PorcentajeMaximoSueldo { get; set; } = 35.0;
-    }
-
-    public class MortgageCalculations
-    {
-        public decimal CostesTotalesCompra { get; set; }
-        public decimal CosteTotalVivienda { get; set; }
-        public decimal EntradaNeta { get; set; }
-        public decimal ImportePrestamo { get; set; }
-        public decimal PorcentajeFinanciacion { get; set; }
-        public decimal PagoMensualHipoteca { get; set; }
-        public decimal CosteTotalIntereses { get; set; }
-        public decimal CosteTotalConIntereses { get; set; }
-        public string AlertMessage { get; set; } = string.Empty;
-        public Severity AlertSeverity { get; set; }
-        public decimal PorcentajeSueldoDedicadoHipoteca { get; set; }
-        public decimal PagoMensualMaximoRecomendado { get; set; }
-    }
-
-    public static class FinancialMath
-    {
-        public static decimal CalculateMonthlyMortgagePayment( decimal p, decimal r, int y ) { if ( p <= 0 || y <= 0 ) return 0; if ( r <= 0 ) return p / (y * 12); var mR = r / 12; int nP = y * 12; var mRD = (double)mR; var pD = (double)p; return (decimal)(pD * mRD * Math.Pow( 1 + mRD, nP ) / (Math.Pow( 1 + mRD, nP ) - 1)); }
     }
 }
