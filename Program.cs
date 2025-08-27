@@ -1,5 +1,6 @@
 using Blazored.LocalStorage;
 using Calculators;
+using Calculators.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using MudBlazor.Services;
@@ -12,6 +13,8 @@ builder.Services.AddScoped( sp => new HttpClient { BaseAddress = new Uri( builde
 
 builder.Services.AddMudServices();
 builder.Services.AddBlazoredLocalStorage();
+
+builder.Services.AddScoped<ICompoundInterestService, CompoundInterestService>();
 
 builder.Services.AddScoped( sp =>
     new HttpClient { BaseAddress = new Uri( "https://marck21.github.io/Calculators/" ) }

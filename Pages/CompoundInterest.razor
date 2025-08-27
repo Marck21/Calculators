@@ -1,5 +1,13 @@
 ﻿@page "/compound-interest"
+
+@using Calculators.Helpers
+@using Calculators.Services
+@using Calculators.Models.CompoundInterest
+@using System.Globalization
+
 @inject Blazored.LocalStorage.ILocalStorageService localStorage
+@inject ICompoundInterestService CompoundInterestService
+
 
 <PageTitle>Interés compuesto</PageTitle>
 
@@ -108,6 +116,7 @@
         var lastPeriod = inputs.ContributionPeriods.LastOrDefault();
         var nextStartYear = (lastPeriod?.EndYear ?? 0) + 1;
         inputs.ContributionPeriods.Add( new ContributionPeriod { StartYear = nextStartYear, EndYear = inputs.DurationInYears, Amount = 0 } );
+        InvokeAsync( () => CalculateAsync() );
     }
 
     private async Task RemovePeriod( ContributionPeriod period )
@@ -121,76 +130,28 @@
 
     private async Task CalculateAsync( bool isInitialLoad = false )
     {
-        calculated.ValidationMessage = string.Empty;
-        var sortedPeriods = inputs.ContributionPeriods.OrderBy( p => p.StartYear ).ToList();
+        calculated = CompoundInterestService.CalculateCompoundInterest( inputs );
 
-        for ( int i = 1; i < sortedPeriods.Count; i++ )
+        if ( !string.IsNullOrEmpty( calculated.ValidationMessage ) )
         {
-            if ( sortedPeriods[i].StartYear < sortedPeriods[i - 1].EndYear )
-            {
-                calculated.ValidationMessage = $"Error: El periodo que empieza en el año {sortedPeriods[i].StartYear} se solapa con el anterior que termina en el año {sortedPeriods[i - 1].EndYear}.";
-                annualBreakdown.Clear();
-                calculated.FinalBalance = 0;
-                calculated.InflationAdjustedFinalBalance = 0;
-                pieChartData = new double[3];
-                barChartSeries.Clear();
-                StateHasChanged();
-                return;
-            }
+            annualBreakdown.Clear();
+            pieChartData = new double[3];
+            barChartSeries.Clear();
+            barChartXAxisLabels = Array.Empty<string>();
+            StateHasChanged();
+            return;
         }
 
-        annualBreakdown.Clear();
-        decimal currentBalance = inputs.InitialBalance;
-        decimal totalContributions = 0;
-        decimal annualInterestRate = (decimal)inputs.AnnualInterestRate / 100;
-        decimal inflationRate = (decimal)inputs.AnnualInflationRate / 100;
-
-        for ( int year = 1; year <= inputs.DurationInYears; year++ )
-        {
-            decimal balanceAtStartOfYear = currentBalance;
-            var period = sortedPeriods.LastOrDefault( p => year >= p.StartYear && year < p.EndYear );
-            if ( period == null )
-            {
-                period = sortedPeriods.FirstOrDefault( p => year >= p.StartYear && year <= p.EndYear );
-            }
-
-            decimal monthlyContribution = period?.Amount ?? 0;
-
-            currentBalance = FinancialMath.CalculateFutureValue( balanceAtStartOfYear, monthlyContribution, 12, annualInterestRate );
-
-            decimal annualContribution = monthlyContribution * 12;
-            decimal interestThisYear = currentBalance - balanceAtStartOfYear - annualContribution;
-
-            totalContributions += annualContribution;
-            decimal totalInterest = currentBalance - inputs.InitialBalance - totalContributions;
-            decimal inflationAdjustedBalance = currentBalance / (decimal)Math.Pow( 1 + (double)inflationRate, year );
-
-            annualBreakdown.Add( new AnnualBreakdownRow
-            {
-                Year = year,
-                AnnualContribution = annualContribution,
-                TotalContributions = totalContributions,
-                AnnualInterest = interestThisYear,
-                TotalInterest = totalInterest,
-                FinalBalance = currentBalance,
-                InflationAdjustedBalance = inflationAdjustedBalance
-            } );
-        }
-
-        var finalRow = annualBreakdown.LastOrDefault() ?? new AnnualBreakdownRow();
-        calculated.FinalBalance = finalRow.FinalBalance;
-        calculated.TotalContributions = finalRow.TotalContributions;
-        calculated.TotalInterest = finalRow.TotalInterest;
-        calculated.InflationAdjustedFinalBalance = finalRow.InflationAdjustedBalance;
+        annualBreakdown = CompoundInterestService.GetAnnualBreakdown( inputs );
 
         pieChartData = new double[] { (double)inputs.InitialBalance, (double)calculated.TotalContributions, (double)calculated.TotalInterest };
         barChartXAxisLabels = annualBreakdown.Select( r => r.Year.ToString() ).ToArray();
         barChartSeries = new List<ChartSeries>
-    {
-        new ChartSeries { Name = "Balance Inicial", Data = Enumerable.Repeat((double)inputs.InitialBalance, annualBreakdown.Count).ToArray() },
-        new ChartSeries { Name = "Depósitos Totales", Data = annualBreakdown.Select(r => (double)r.TotalContributions).ToArray() },
-        new ChartSeries { Name = "Interés Total", Data = annualBreakdown.Select(r => (double)r.TotalInterest).ToArray() }
-    };
+        {
+            new ChartSeries { Name = "Balance Inicial", Data = Enumerable.Repeat((double)inputs.InitialBalance, annualBreakdown.Count).ToArray() },
+            new ChartSeries { Name = "Depósitos Totales", Data = annualBreakdown.Select(r => (double)r.TotalContributions).ToArray() },
+            new ChartSeries { Name = "Interés Total", Data = annualBreakdown.Select(r => (double)r.TotalInterest).ToArray() }
+        };
 
         if ( !isLoading && !isInitialLoad )
         {
@@ -198,56 +159,5 @@
         }
 
         StateHasChanged();
-    }
-
-    public class CompoundInterestInputs
-    {
-        public decimal InitialBalance { get; set; } = 100000;
-        public double AnnualInterestRate { get; set; } = 10.0;
-        public int DurationInYears { get; set; } = 32;
-        public double AnnualInflationRate { get; set; } = 2.5;
-        public List<ContributionPeriod> ContributionPeriods { get; set; } = new List<ContributionPeriod>
-        {
-            new ContributionPeriod { StartYear = 1, EndYear = 5, Amount = 1500 }
-        };
-    }
-
-    public class ContributionPeriod
-    {
-        public int StartYear { get; set; }
-        public int EndYear { get; set; }
-        public decimal Amount { get; set; }
-    }
-
-    public class CompoundInterestCalculations
-    {
-        public decimal FinalBalance { get; set; }
-        public decimal TotalContributions { get; set; }
-        public decimal TotalInterest { get; set; }
-        public decimal InflationAdjustedFinalBalance { get; set; }
-        public string? ValidationMessage { get; set; }
-    }
-
-    public class AnnualBreakdownRow
-    {
-        public int Year { get; set; }
-        public decimal AnnualContribution { get; set; }
-        public decimal TotalContributions { get; set; }
-        public decimal AnnualInterest { get; set; }
-        public decimal TotalInterest { get; set; }
-        public decimal FinalBalance { get; set; }
-        public decimal InflationAdjustedBalance { get; set; }
-    }
-
-    public static class FinancialMath
-    {
-        public static decimal CalculateFutureValue( decimal principal, decimal monthlyPayment, int numberOfMonths, decimal annualRate )
-        {
-            if ( annualRate == 0 ) return principal + (monthlyPayment * numberOfMonths);
-            decimal r = annualRate / 12;
-            int n = numberOfMonths;
-            double r_d = (double)r;
-            return principal * (decimal)Math.Pow( 1 + r_d, n ) + monthlyPayment * (decimal)((Math.Pow( 1 + r_d, n ) - 1) / r_d);
-        }
     }
 }
