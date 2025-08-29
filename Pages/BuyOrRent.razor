@@ -1,5 +1,9 @@
 ﻿@page "/buy-or-rent"
+@using Calculators.Models.BuyOrRent
+@using static Calculators.Helpers.BuyOrRentHelper
+
 @inject Blazored.LocalStorage.ILocalStorageService localStorage
+@inject IBuyOrRentService BuyOrRentService
 
 <PageTitle>Comprar o alquilar</PageTitle>
 
@@ -193,24 +197,14 @@
 </MudContainer>
 
 @code {
-    private RenderFragment ListItem( bool isPositive, string label, decimal value )
-    {
-        var color = isPositive ? "color: var(--mud-palette-success);" : "color: var(--mud-palette-error);";
-        var icon = isPositive ? Icons.Material.Filled.AddCircle : Icons.Material.Filled.RemoveCircle;
-        return @<tr style="font-size: 0.9rem;"><td><MudIcon Icon="@icon" Style="@color" Class="mr-1" Size="Size.Small" /> @label</td><td style="text-align: right;">@value.ToString( "C0", es )</td></tr>;
-    }
-}
-
-
-@code {
-    private InvestmentInputs inputs = new InvestmentInputs();
-    private CalculatedValues calculated = new CalculatedValues();
+    private InvestmentInputs inputs = new();
+    private CalculatedValues calculated = new();
     private System.Globalization.CultureInfo es = new System.Globalization.CultureInfo( "es-ES" );
     private bool isLoading = true;
 
-    private List<ChartSeries> RealEstateChartSeries = new List<ChartSeries>();
-    private List<ChartSeries> StockChartSeries = new List<ChartSeries>();
-    private string[] XAxisLabels = Array.Empty<string>();
+    private List<ChartSeries> RealEstateChartSeries = new();
+    private List<ChartSeries> StockChartSeries = new();
+    private string[] XAxisLabels = [];
 
     private ChartOptions RealEstateChartOptions = new ChartOptions { YAxisFormat = "c0", ChartPalette = new string[] { "#594AE2", "#A6A0F0", "#FF9800", "#BDBDBD" } };
     private ChartOptions StockChartOptions = new ChartOptions { YAxisFormat = "c0", ChartPalette = new string[] { "#00C853", "#FF9800" } };
@@ -252,252 +246,15 @@
     {
         if ( isLoading && !isInitialLoad ) return;
         if ( inputs.UsarInversionInicialParaEntrada ) inputs.Entrada = inputs.InversionInicial;
-        Calculate();
+        calculated = BuyOrRentService.Calculate( inputs, ref RealEstateChartSeries, ref StockChartSeries, ref XAxisLabels, RealEstateChartOptions, StockChartOptions );
         if ( !isInitialLoad ) await localStorage.SetItemAsync( "investmentInputs", inputs );
         StateHasChanged();
     }
 
-    private void Calculate()
+    private RenderFragment ListItem( bool isPositive, string label, decimal value )
     {
-        // --- LÓGICA DE APORTACIÓN INICIAL Y ALERTAS ---
-        calculated.CostesTotalesCompra = (inputs.PrecioVivienda * ((decimal)inputs.CostesCompra / 100)) + inputs.GastosFijosCompra;
-        calculated.CosteTotalVivienda = inputs.PrecioVivienda + calculated.CostesTotalesCompra;
-        calculated.EntradaNeta = inputs.Entrada - calculated.CostesTotalesCompra;
-
-        if ( inputs.PrecioVivienda > 0 )
-        {
-            // CORREGIDO: La lógica de la alerta ahora se basa en la Entrada Neta vs el Precio de la Vivienda
-            var netDownPaymentPercentage = calculated.EntradaNeta / inputs.PrecioVivienda;
-            string baseMessage = $"Tu entrada neta equivale al <strong>{netDownPaymentPercentage:P1}</strong> del precio. ";
-
-            if ( calculated.EntradaNeta < 0 )
-            {
-                calculated.DownPaymentWarningMessage = "¡Error! La aportación inicial no cubre los costes de compra.";
-                calculated.DownPaymentWarningSeverity = Severity.Error;
-            }
-            else if ( netDownPaymentPercentage < 0.1m )
-            {
-                calculated.DownPaymentWarningMessage = baseMessage + "Atención: Aportas menos del 10% del coste total, lo que puede ser arriesgado.";
-                calculated.DownPaymentWarningSeverity = Severity.Warning;
-            }
-            else if ( netDownPaymentPercentage < 0.2m )
-            {
-                calculated.DownPaymentWarningMessage = baseMessage + "Nota: Estás en un rango razonable, pero por debajo del 20% recomendado.";
-                calculated.DownPaymentWarningSeverity = Severity.Info;
-            }
-            else
-            {
-                calculated.DownPaymentWarningMessage = baseMessage + "¡Excelente! Aportas más del 20% del coste total, una posición muy sólida.";
-                calculated.DownPaymentWarningSeverity = Severity.Success;
-            }
-        }
-        else { calculated.DownPaymentWarningMessage = string.Empty; }
-
-
-        // --- CÁLCULOS PRINCIPALES ---
-        var realEstateNetValueData = new List<double>();
-        var realEstateLeftoverStockNetData = new List<double>();
-        var realEstateTaxesPaidData = new List<double>();
-        var realEstateTaxesExemptData = new List<double>();
-        var realEstateLeftoverTaxesData = new List<double>();
-        var stockMarketNetValueData = new List<double>();
-        var stockMarketTaxesData = new List<double>();
-        var yearsForChart = new List<string>();
-
-        calculated.ImportePrestamo = inputs.PrecioVivienda - Math.Max( 0, calculated.EntradaNeta );
-        calculated.PorcentajeFinanciacion = (inputs.PrecioVivienda > 0) ? calculated.ImportePrestamo / inputs.PrecioVivienda : 0;
-        calculated.PagoMensualHipoteca = FinancialMath.CalculateMonthlyMortgagePayment( calculated.ImportePrestamo, (decimal)inputs.TipoInteresAnual / 100, inputs.AnosHipoteca );
-
-        decimal inversionRestante = Math.Max( 0, inputs.InversionInicial - inputs.Entrada );
-
-        for ( int year = 1; year <= inputs.AnosInversion; year++ )
-        {
-            int edadAlVenderAnual = inputs.EdadActual + year;
-            bool esExento = edadAlVenderAnual >= 65 && inputs.EsViviendaHabitual;
-
-            decimal precioVentaEstimadoAnual = inputs.PrecioVivienda * (decimal)Math.Pow( 1 + (double)inputs.CrecimientoAnualVivienda / 100, year );
-            decimal plusvaliaInmueble = precioVentaEstimadoAnual - inputs.PrecioVivienda;
-            decimal impuestosPlusvaliaInmueble = FinancialMath.CalculateProgressiveCapitalGainsTax( plusvaliaInmueble );
-
-            decimal costesVentaAnuales = precioVentaEstimadoAnual * ((decimal)inputs.CostesVenta / 100);
-            decimal pagosHipotecaAcumulados = calculated.PagoMensualHipoteca * Math.Min( year, inputs.AnosHipoteca ) * 12;
-            decimal principalPagado = FinancialMath.CalculatePrincipalPaid( calculated.ImportePrestamo, (decimal)inputs.TipoInteresAnual / 100, inputs.AnosHipoteca, year );
-            decimal interesesPagadosAnuales = pagosHipotecaAcumulados - principalPagado;
-
-            decimal patrimonioBrutoVivienda = precioVentaEstimadoAnual - interesesPagadosAnuales - calculated.CostesTotalesCompra - costesVentaAnuales;
-            decimal patrimonioNetoVivienda = patrimonioBrutoVivienda - (esExento ? 0 : impuestosPlusvaliaInmueble);
-
-            decimal valorRestanteEnBolsaAnual = inversionRestante * (decimal)Math.Pow( 1 + (double)inputs.CrecimientoAnualBolsa / 100, year );
-            decimal plusvaliaRestante = valorRestanteEnBolsaAnual - inversionRestante;
-            decimal impuestosRestanteAnual = FinancialMath.CalculateProgressiveCapitalGainsTax( plusvaliaRestante );
-            decimal valorNetoRestanteEnBolsa = valorRestanteEnBolsaAnual - impuestosRestanteAnual;
-
-            decimal retornoTotalInmobiliariaAnual = patrimonioNetoVivienda + valorNetoRestanteEnBolsa;
-
-            decimal valorCarteraCompletaAnual = inputs.InversionInicial * (decimal)Math.Pow( 1 + (double)inputs.CrecimientoAnualBolsa / 100, year );
-            decimal plusvaliaCarteraCompleta = valorCarteraCompletaAnual - inputs.InversionInicial;
-            decimal impuestosCarteraCompleta = FinancialMath.CalculateProgressiveCapitalGainsTax( plusvaliaCarteraCompleta );
-            decimal retornoTotalBolsaAnual = valorCarteraCompletaAnual - impuestosCarteraCompleta;
-
-            int step = Math.Max( 1, inputs.AnosInversion / 10 );
-            if ( year == 1 || year % step == 0 || year == inputs.AnosInversion )
-            {
-                realEstateNetValueData.Add( Math.Round( (double)patrimonioNetoVivienda ) );
-                realEstateLeftoverStockNetData.Add( Math.Round( (double)valorNetoRestanteEnBolsa ) );
-
-                realEstateTaxesPaidData.Add( esExento ? 0 : Math.Round( (double)impuestosPlusvaliaInmueble ) );
-                realEstateTaxesExemptData.Add( esExento ? Math.Round( (double)impuestosPlusvaliaInmueble ) : 0 );
-                realEstateLeftoverTaxesData.Add( Math.Round( (double)impuestosRestanteAnual ) );
-
-                stockMarketNetValueData.Add( Math.Round( (double)retornoTotalBolsaAnual ) );
-                stockMarketTaxesData.Add( Math.Round( (double)impuestosCarteraCompleta ) );
-                yearsForChart.Add( year.ToString() );
-            }
-
-            if ( year == inputs.AnosInversion )
-            {
-                calculated.TotalGastosAlquiler = FinancialMath.CalculateSimulatedRentExpense( inputs.AlquilerMensualAlternativo, (decimal)inputs.CrecimientoAnualAlquiler / 100, year );
-                calculated.PrecioVentaEstimado = precioVentaEstimadoAnual;
-                calculated.CostesTotalesVenta = costesVentaAnuales;
-                calculated.CosteTotalIntereses = interesesPagadosAnuales;
-                calculated.CosteImpuestosPlusvaliasInmueble = impuestosPlusvaliaInmueble;
-                calculated.ValorRestanteEnBolsa = valorRestanteEnBolsaAnual;
-                calculated.CosteImpuestosPlusvaliasRestante = impuestosRestanteAnual;
-                calculated.RetornoTotalInmobiliaria = retornoTotalInmobiliariaAnual;
-
-                calculated.ValorCarteraBolsa = valorCarteraCompletaAnual;
-                calculated.CosteImpuestosPlusvalias = impuestosCarteraCompleta;
-                calculated.RetornoTotalBolsa = retornoTotalBolsaAnual;
-                calculated.FlujoCajaMensualBolsa = (retornoTotalBolsaAnual - inputs.InversionInicial) / (inputs.AnosInversion > 0 ? inputs.AnosInversion * 12 : 1);
-
-                calculated.DiferenciaRetornoTotal = calculated.RetornoTotalBolsa - calculated.RetornoTotalInmobiliaria;
-                calculated.CosteTotalConIntereses = calculated.CosteTotalVivienda + calculated.CosteTotalIntereses;
-            }
-        }
-
-        double maxValue = 0;
-        for ( int i = 0; i < realEstateNetValueData.Count; i++ ) { maxValue = Math.Max( maxValue, realEstateNetValueData[i] + realEstateLeftoverStockNetData[i] + realEstateTaxesPaidData[i] + realEstateTaxesExemptData[i] + realEstateLeftoverTaxesData[i] ); }
-        for ( int i = 0; i < stockMarketNetValueData.Count; i++ ) { maxValue = Math.Max( maxValue, stockMarketNetValueData[i] + stockMarketTaxesData[i] ); }
-        if ( maxValue > 0 )
-        {
-            double interval = maxValue / 8.0;
-            double magnitude = Math.Pow( 10, Math.Floor( Math.Log10( interval ) ) );
-            int syncedTicks = (int)(Math.Ceiling( interval / magnitude ) * magnitude);
-            RealEstateChartOptions.YAxisTicks = syncedTicks;
-            StockChartOptions.YAxisTicks = syncedTicks;
-        }
-
-        XAxisLabels = yearsForChart.ToArray();
-        RealEstateChartSeries = new List<ChartSeries>
-        {
-            new ChartSeries { Name = "Patrimonio Inmobiliario (Neto)", Data = realEstateNetValueData.ToArray() },
-            new ChartSeries { Name = "Resto en Bolsa (Neto)", Data = realEstateLeftoverStockNetData.ToArray() },
-            new ChartSeries { Name = "Impuestos Inmueble (Pagados)", Data = realEstateTaxesPaidData.ToArray() },
-            new ChartSeries { Name = "Impuestos Inmueble (Exentos)", Data = realEstateTaxesExemptData.ToArray() },
-            new ChartSeries { Name = "Impuestos Bolsa (Restante)", Data = realEstateLeftoverTaxesData.ToArray() },
-        };
-        StockChartSeries = new List<ChartSeries>
-        {
-            new ChartSeries { Name = "Bolsa (Neto)", Data = stockMarketNetValueData.ToArray() },
-            new ChartSeries { Name = "Impuestos Pagados", Data = stockMarketTaxesData.ToArray() },
-        };
-    }
-
-    public class InvestmentInputs
-    {
-        public decimal InversionInicial { get; set; } = 100000;
-        public int AnosInversion { get; set; } = 32;
-        public decimal AlquilerMensualAlternativo { get; set; } = 456;
-        public double CrecimientoAnualAlquiler { get; set; } = 2.00;
-        public bool UsarInversionInicialParaEntrada { get; set; } = false;
-        public decimal PrecioVivienda { get; set; } = 258000;
-        public decimal Entrada { get; set; } = 53600;
-        public double CrecimientoAnualVivienda { get; set; } = 3.50;
-        public int AnosHipoteca { get; set; } = 30;
-        public double TipoInteresAnual { get; set; } = 2;
-        public double CostesCompra { get; set; } = 8.00;
-        public decimal GastosFijosCompra { get; set; } = 6000;
-        public double CostesVenta { get; set; } = 0;
-        public double CrecimientoAnualBolsa { get; set; } = 8.00;
-        public int EdadActual { get; set; } = 28;
-        public bool EsViviendaHabitual { get; set; } = true;
-    }
-
-    public class CalculatedValues
-    {
-        public decimal TotalGastosAlquiler { get; set; }
-        public decimal PrecioVentaEstimado { get; set; }
-        public decimal CostesTotalesCompra { get; set; }
-        public decimal CostesTotalesVenta { get; set; }
-        public decimal ImportePrestamo { get; set; }
-        public decimal PagoMensualHipoteca { get; set; }
-        public decimal RetornoTotalInmobiliaria { get; set; }
-        public decimal ValorCarteraBolsa { get; set; }
-        public decimal CosteImpuestosPlusvalias { get; set; }
-        public decimal RetornoTotalBolsa { get; set; }
-        public decimal FlujoCajaMensualBolsa { get; set; }
-        public decimal DiferenciaRetornoTotal { get; set; }
-        public string DownPaymentWarningMessage { get; set; } = string.Empty;
-        public Severity DownPaymentWarningSeverity { get; set; }
-        public decimal ValorRestanteEnBolsa { get; set; }
-        public decimal CosteImpuestosPlusvaliasRestante { get; set; }
-        public decimal CosteImpuestosPlusvaliasInmueble { get; set; }
-        public decimal EntradaNeta { get; set; }
-        public decimal PorcentajeFinanciacion { get; set; }
-        public decimal CosteTotalIntereses { get; set; }
-        public decimal CosteTotalVivienda { get; set; }
-        public decimal CosteTotalConIntereses { get; set; }
-    }
-
-    public static class FinancialMath
-    {
-        public static decimal CalculateMonthlyMortgagePayment( decimal p, decimal r, int y ) { if ( p <= 0 || y <= 0 ) return 0; if ( r <= 0 ) return p / (y * 12); var mR = r / 12; int nP = y * 12; var mRD = (double)mR; var pD = (double)p; return (decimal)(pD * mRD * Math.Pow( 1 + mRD, nP ) / (Math.Pow( 1 + mRD, nP ) - 1)); }
-        public static decimal CalculateSimulatedRentExpense( decimal i, decimal g, int y ) { if ( i <= 0 ) return 0; decimal t = 0, c = i; for ( int m = 1; m <= y * 12; m++ ) { t += c; if ( m % 12 == 0 && m < y * 12 ) c *= (1 + g); } return t; }
-        public static decimal CalculatePrincipalPaid( decimal p, decimal r, int lY, int cY ) { if ( p <= 0 ) return p; if ( cY == 0 ) return 0; var mP = CalculateMonthlyMortgagePayment( p, r, lY ); if ( mP <= 0 ) return 0; decimal remB = p, mR = r / 12; int tM = Math.Min( cY * 12, lY * 12 ); for ( int i = 0; i < tM; i++ ) { decimal intr = remB * mR; remB -= (mP - intr); } return p - Math.Max( 0, remB ); }
-
-        public static decimal CalculateProgressiveCapitalGainsTax( decimal capitalGain )
-        {
-            if ( capitalGain <= 0 ) return 0;
-
-            decimal tax = 0;
-            decimal remainingGain = capitalGain;
-
-            // Tramo 1: hasta 6.000 € al 19%
-            decimal bracket1Amount = Math.Min( remainingGain, 6000m );
-            tax += bracket1Amount * 0.19m;
-            remainingGain -= bracket1Amount;
-
-            // Tramo 2: de 6.000 € a 50.000 € al 21%
-            if ( remainingGain > 0 )
-            {
-                decimal bracket2Amount = Math.Min( remainingGain, 44000m );
-                tax += bracket2Amount * 0.21m;
-                remainingGain -= bracket2Amount;
-            }
-
-            // Tramo 3: de 50.000 € a 200.000 € al 23%
-            if ( remainingGain > 0 )
-            {
-                decimal bracket3Amount = Math.Min( remainingGain, 150000m );
-                tax += bracket3Amount * 0.23m;
-                remainingGain -= bracket3Amount;
-            }
-
-            // Tramo 4: de 200.000 € a 300.000 € al 27%
-            if ( remainingGain > 0 )
-            {
-                decimal bracket4Amount = Math.Min( remainingGain, 100000m );
-                tax += bracket4Amount * 0.27m;
-                remainingGain -= bracket4Amount;
-            }
-
-            // Tramo 5: a partir de 300.000 € al 28%
-            if ( remainingGain > 0 )
-            {
-                tax += remainingGain * 0.28m;
-            }
-
-            return tax;
-        }
+        var color = isPositive ? "color: var(--mud-palette-success);" : "color: var(--mud-palette-error);";
+        var icon = isPositive ? Icons.Material.Filled.AddCircle : Icons.Material.Filled.RemoveCircle;
+        return @<tr style="font-size: 0.9rem;"><td><MudIcon Icon="@icon" Style="@color" Class="mr-1" Size="Size.Small" /> @label</td><td style="text-align: right;">@value.ToString( "C0", es )</td></tr>;
     }
 }

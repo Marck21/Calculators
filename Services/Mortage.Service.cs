@@ -1,4 +1,4 @@
-﻿using Calculators.Models.BuyOrRent;
+﻿using Calculators.Models.Mortage;
 using static Calculators.Helpers.MortageHelper;
 
 namespace Calculators.Services;

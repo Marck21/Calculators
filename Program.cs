@@ -17,6 +17,7 @@ builder.Services.AddBlazoredLocalStorage();
 
 builder.Services.AddScoped<ICompoundInterestService, CompoundInterestService>();
 builder.Services.AddScoped<IMortgageService, MortgageService>();
+builder.Services.AddScoped<IBuyOrRentService, BuyOrRentService>();
 
 builder.Services.AddScoped( sp =>
     new HttpClient { BaseAddress = new Uri( "https://marck21.github.io/Calculators/" ) }

@@ -1,4 +1,4 @@
-﻿namespace Calculators.Models.BuyOrRent;
+﻿namespace Calculators.Models.Mortage;
 
 public class MortgageCalculations
 {
